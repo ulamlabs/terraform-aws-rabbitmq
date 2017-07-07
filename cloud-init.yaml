@@ -1,0 +1,57 @@
+#cloud-config
+hostname: ${hostname}
+
+write_files:
+  - path: /root/docker-compose.yaml
+    content: |
+        version: "2"
+        services:
+          node:
+            hostname: ${hostname}
+            environment:
+              - RABBITMQ_ERLANG_COOKIE=${secret_cookie}
+              - RABBITMQ_USE_LONGNAME=true
+              - RABBITMQ_NODENAME=rabbit@${hostname}
+            image: "rabbitmq:3-management"
+            ports:
+              - '4369:4369'
+              - "5672:5672"
+              - "15672:15672"
+              - '25672:25672'
+            volumes:
+              - ./data:/var/lib/rabbitmq
+              - ./conf:/etc/rabbitmq
+  - path: /root/conf/enabled_plugins
+    content: |
+        [rabbitmq_management].
+  - path: /root/conf/rabbitmq.config
+    content: |
+        [ { rabbit, [
+          {cluster_nodes, {[${nodes}], disc}},
+          { loopback_users, [ ] } ] }
+         ].
+
+
+
+runcmd:
+  # wait until DNS records are created
+  - sleep 10
+  - yum update -y
+  - yum install -y docker
+  - service docker start
+  - chkconfig docker on
+  - usermod -a -G docker ec2-user
+  - pip install docker-compose
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml up -d
+  - sleep 2
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} add_user admin ${admin_password} || true
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_user_tags admin administrator || true
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} add_user rabbit ${rabbit_password} || true
+
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} add_vhost / || true
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_policy -p / ha-all_ttl_expiry "^" '{"ha-mode":"exactly", "ha-params":${majority}, "ha-sync-mode":"automatic", "message-ttl":${message_timeout}, "expires":${message_timeout}}' || true
+
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_permissions -p / admin ".*" ".*" ".*" || true
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_permissions -p / rabbit ".*" ".*" ".*" || true
+
+  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} delete_user guest || true
