@@ -1,57 +1,76 @@
 #cloud-config
-hostname: ${hostname}
-
 write_files:
-  - path: /root/docker-compose.yaml
-    content: |
-        version: "2"
-        services:
-          node:
-            hostname: ${hostname}
-            environment:
-              - RABBITMQ_ERLANG_COOKIE=${secret_cookie}
-              - RABBITMQ_USE_LONGNAME=true
-              - RABBITMQ_NODENAME=rabbit@${hostname}
-            image: "rabbitmq:3-management"
-            ports:
-              - '4369:4369'
-              - "5672:5672"
-              - "15672:15672"
-              - '25672:25672'
-            volumes:
-              - ./data:/var/lib/rabbitmq
-              - ./conf:/etc/rabbitmq
   - path: /root/conf/enabled_plugins
     content: |
         [rabbitmq_management].
   - path: /root/conf/rabbitmq.config
     content: |
         [ { rabbit, [
-          {cluster_nodes, {[${nodes}], disc}},
           { loopback_users, [ ] } ] }
          ].
+  - path: /root/find_hosts.sh
+    content: |
+        #!/usr/bin/env bash
 
+        export AWS_DEFAULT_REGION='${region}'
 
+        DNSES=$(aws ec2 describe-instances --filters "Name=tag:aws:autoscaling:groupName,Values=rabbitmq" "Name=instance-state-name,Values=running" | jq ".Reservations[].Instances[].PrivateDnsName" | xargs)
+
+        HOSTNAMES=()
+        for dns in $DNSES; do
+            hostname=($${dns//./ })
+            if [ "$hostname" != "$HOSTNAME" ]; then
+              HOSTNAMES+=( $hostname )
+            fi
+        done
+
+        echo $HOSTNAMES
+  - path: /root/bin/join_cluster.sh
+    content: |
+        #!/usr/bin/env sh
+
+        HOSTNAMES=( $@ )
+
+        for run in {1..3}; do
+          sleep $[ ( $RANDOM % 10 )  + 1 ]s
+          rabbitmqctl stop_app
+
+          NEW_HOSTNAMES=()
+          for hostname in $HOSTNAMES; do
+            rabbitmqctl join_cluster rabbit@$hostname
+            st=$?
+            if [ $st -ne 0 ] && [ $st -ne 130 ]; then  # 130 is "already joined"
+              NEW_HOSTNAMES+=( $hostname )
+            fi
+          done
+
+          HOSTNAMES=( $${NEW_HOSTNAMES[@]} )
+          rabbitmqctl start_app
+
+          if [ $${#HOSTNAMES[@]} -eq 0 ]; then
+            exit 0
+          fi
+        done
+  - path: /root/configure.sh
+    content: |
+        #!/usr/bin/env bash
+        docker exec rabbitmq rabbitmqctl add_user admin ${admin_password}
+        docker exec rabbitmq rabbitmqctl set_user_tags admin administrator
+        docker exec rabbitmq rabbitmqctl add_user rabbit ${rabbit_password}
+        docker exec rabbitmq rabbitmqctl add_vhost /
+        docker exec rabbitmq rabbitmqctl set_policy -p / ha-three "^" '{"ha-mode":"exactly", "ha-params":${sync_node_count}, "ha-sync-mode":"automatic", "message-ttl":${message_timeout}, "expires":${message_timeout}}'
+        docker exec rabbitmq rabbitmqctl set_permissions -p / admin ".*" ".*" ".*"
+        docker exec rabbitmq rabbitmqctl set_permissions -p / rabbit ".*" ".*" ".*"
+        docker exec rabbitmq rabbitmqctl delete_user guest
 
 runcmd:
-  # wait until DNS records are created
-  - sleep 10
   - yum update -y
-  - yum install -y docker
+  - yum install -y docker jq
   - service docker start
   - chkconfig docker on
   - usermod -a -G docker ec2-user
-  - pip install docker-compose
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml up -d
-  - sleep 2
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} add_user admin ${admin_password} || true
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_user_tags admin administrator || true
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} add_user rabbit ${rabbit_password} || true
-
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} add_vhost / || true
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_policy -p / ha-all_ttl_expiry "^" '{"ha-mode":"exactly", "ha-params":${majority}, "ha-sync-mode":"automatic", "message-ttl":${message_timeout}, "expires":${message_timeout}}' || true
-
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_permissions -p / admin ".*" ".*" ".*" || true
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} set_permissions -p / rabbit ".*" ".*" ".*" || true
-
-  - /usr/local/bin/docker-compose -f /root/docker-compose.yaml exec -T node rabbitmqctl -n rabbit@${hostname} delete_user guest || true
+  - docker run -d --name rabbitmq --hostname $HOSTNAME -p 4369:4369 -p 5672:5672 -p 15672:15672 -p 25672:25672 -e RABBITMQ_ERLANG_COOKIE='${secret_cookie}' -v /root/data:/var/lib/rabbitmq -v /root/conf/:/etc/rabbitmq -v /root/bin:/tmp/bin rabbitmq:3-management
+  - sleep 1
+  - docker exec rabbitmq bash /tmp/bin/join_cluster.sh $(bash /root/find_hosts.sh)
+  - sleep 1
+  - bash /root/configure.sh

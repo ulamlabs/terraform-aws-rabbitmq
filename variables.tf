@@ -15,9 +15,6 @@ variable "security_group_ids" {
   description = "Security groups which should have access to ELB (amqp + http ports) and nodes (ssh port)"
   type = "list"
 }
-variable "route53_zone_id" {
-  description = "Route53 internal zone"
-}
 variable "admin_password" {
   description = "Password for 'admin' user"
   default = "password"

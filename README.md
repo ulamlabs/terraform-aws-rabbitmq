@@ -1,9 +1,19 @@
 # Dead simple Terraform configuration for creating RabbitMQ cluster on AWS.
 
 
-## Requirements
-1. AWS account
-2. Route53 Zone (internal preferably)
+## What it does ?
+
+1. Creates `${var.count}` nodes in `${var.subnet_ids}` subnets
+1. Creates Autoscaling Group and ELB to load balance nodes
+1. Makes sure nodes can talk to each other and create cluster
+1. Make sure new nodes always join the cluster
+1. Configures `/` vhost queues in High Available (Mirrored) mode with automatic synchronization (`"ha-mode":"all", "ha-sync-mode":"3"`)
+
+
+<p align="center">
+<img src=".github/chart2.png" width="600">
+</p>
+
 
 ## How to use it ?
 
@@ -15,20 +25,12 @@ secret_key = "<YOUR-SECRET-HERE>"
 ssh_key_name = "<SSH-KEY-NAME>"
 vpc_id = "<VPC-ID>"
 subnet_ids = ["<SUBNET-1-ID>", "<SUBNET-2-ID>"]
-route53_zone_id = "<ROUTE53-ZONE-ID>"
+count = 3
 ```
 
 then run `terraform plan` and `terraform apply`
 
-## What it does ?
+Are 3 node not enough ? Update `count` to `5` and run `terraform apply` again,
+it will update Autoscaling Group and add `2` nodes more. Dead simple.
 
-1. Creates `${var.count}` nodes in `${var.subnet_ids}` subnets
-1. Adds Route53 A record for each node in `${var.route53_zone_id}` zone (like `rabbit-0.local`, `rabbit-1.local`, ...)
-1. Makes sure they can talk to each other and create cluster
-1. Configures `/` vhost queues in High Available (Mirrored) mode with automatic synchronization (`"ha-mode":"all", "ha-sync-mode":"automatic"`)
-1. Creates ELB to load balance nodes and Route53 record for it (like `rabbit.local`)
-
-
-<p align="center">
-<img src=".github/chart.png" width="600">
-</p>
+Node becomes unresponsive ? Autoscaling group and ELB Health Checks will automatically replace it with new one, without data loss.
