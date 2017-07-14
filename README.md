@@ -23,6 +23,7 @@ region = "<REGION-HERE>"
 access_key = "<YOUR-KEY-HERE>"
 secret_key = "<YOUR-SECRET-HERE>"
 ssh_key_name = "<SSH-KEY-NAME>"
+instance_type = "t2.small"
 vpc_id = "<VPC-ID>"
 subnet_ids = ["<SUBNET-ID-1>", "<SUBNET-ID-2>"]
 ssh_security_group_ids = []

@@ -4,6 +4,7 @@ variable "region" {}
 
 variable "vpc_id" {}
 variable "ssh_key_name" {}
+variable "instance_type" {}
 variable "subnet_ids" {
   type = "list"
 }
@@ -30,6 +31,7 @@ module "rabbitmq" {
   region = "${var.region}"
   vpc_id = "${var.vpc_id}"
   ssh_key_name = "${var.ssh_key_name}"
+  instance_type = "${var.instance_type}"
   subnet_ids = "${var.subnet_ids}"
   ssh_security_group_ids = "${var.ssh_security_group_ids}"
   elb_security_group_ids = "${var.elb_security_group_ids}"
