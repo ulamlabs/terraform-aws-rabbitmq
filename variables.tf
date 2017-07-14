@@ -1,7 +1,5 @@
-variable "access_key" {}
-variable "secret_key" {}
-variable "region" {}
 variable "vpc_id" {}
+variable "region" {}
 variable "ssh_key_name" {}
 variable "count" {
   description = "Number of RabbitMQ nodes"
@@ -11,8 +9,12 @@ variable "subnet_ids" {
   description = "Subnets for RabbitMQ nodes"
   type = "list"
 }
-variable "security_group_ids" {
-  description = "Security groups which should have access to ELB (amqp + http ports) and nodes (ssh port)"
+variable "ssh_security_group_ids" {
+  description = "Security groups which should have SSH access to nodes."
+  type = "list"
+}
+variable "elb_security_group_ids" {
+  description = "Security groups which should have access to ELB (amqp + http ports)."
   type = "list"
 }
 variable "admin_password" {

@@ -1,9 +1,3 @@
-provider "aws" {
-    region     = "${var.region}"
-    access_key = "${var.access_key}"
-    secret_key = "${var.secret_key}"
-}
-
 data "aws_vpc" "vpc" {
   id = "${var.vpc_id}"
 }
@@ -83,14 +77,14 @@ resource "aws_security_group" "rabbitmq_elb" {
     protocol        = "tcp"
     from_port       = 5672
     to_port         = 5672
-    security_groups = ["${var.security_group_ids}"]
+    security_groups = ["${var.elb_security_group_ids}"]
   }
 
   ingress {
     protocol        = "tcp"
     from_port       = 80
     to_port         = 80
-    security_groups = ["${var.security_group_ids}"]
+    security_groups = ["${var.elb_security_group_ids}"]
   }
 
   egress {
@@ -135,7 +129,7 @@ resource "aws_security_group" "rabbitmq_nodes" {
     protocol        = "tcp"
     from_port       = 22
     to_port         = 22
-    security_groups = ["${var.security_group_ids}"]
+    security_groups = ["${var.ssh_security_group_ids}"]
   }
 
   egress {
@@ -172,7 +166,13 @@ resource "aws_autoscaling_group" "rabbitmq" {
   force_delete              = true
   launch_configuration      = "${aws_launch_configuration.rabbitmq.name}"
   load_balancers            = ["${aws_elb.elb.name}"]
-  vpc_zone_identifier       = "${var.subnet_ids}"
+  vpc_zone_identifier       = ["${var.subnet_ids}"]
+
+  tag {
+    key = "Name"
+    value = "rabbitmq"
+    propagate_at_launch = true
+  }
 }
 
 resource "aws_elb" "elb" {
