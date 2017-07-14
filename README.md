@@ -17,18 +17,24 @@
 
 ## How to use it ?
 
-Create `terraform.tfvars` file with content:
+Clone the repo, go to `example` directory, create `terraform.tfvars` file with content:
 ```
 region = "<REGION-HERE>"
 access_key = "<YOUR-KEY-HERE>"
 secret_key = "<YOUR-SECRET-HERE>"
 ssh_key_name = "<SSH-KEY-NAME>"
 vpc_id = "<VPC-ID>"
-subnet_ids = ["<SUBNET-1-ID>", "<SUBNET-2-ID>"]
-count = 3
+subnet_ids = ["<SUBNET-ID-1>", "<SUBNET-ID-2>"]
+ssh_security_group_ids = []
+elb_security_group_ids = []
+
+rabbitmq_admin_password = "example-password"
+rabbitmq_admin_password = "example-password"
+rabbitmq_secret_cookie = "example-secret-cookie"
+rabbitmq_node_count = 3
 ```
 
-then run `terraform plan` and `terraform apply`
+then run `terraform get`, `terraform plan` and `terraform apply`.
 
 Are 3 node not enough ? Update `count` to `5` and run `terraform apply` again,
 it will update Autoscaling Group and add `2` nodes more. Dead simple.
