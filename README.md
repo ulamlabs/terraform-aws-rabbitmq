@@ -30,7 +30,7 @@ ssh_security_group_ids = []
 elb_security_group_ids = []
 
 rabbitmq_admin_password = "example-password"
-rabbitmq_admin_password = "example-password"
+rabbitmq_rabbit_password = "example-password"
 rabbitmq_secret_cookie = "example-secret-cookie"
 rabbitmq_node_count = 3
 ```
