@@ -1,20 +1,15 @@
-language: ruby
+language: python
 sudo: required
 dist: trusty
 
 services:
 - docker
 
-rvm:
-- 2.4.2
-
 before_install:
 - echo "before_install"
 
 install:
 - echo "install"
-- gem install bundler --no-rdoc --no-ri
-- bundle install
 
 before_script:
 - echo 'before_script'
@@ -32,11 +27,6 @@ script:
 - echo 'script'
 - terraform init
 - terraform fmt -check=true
-- terraform validate -var "region=${AWS_REGION}" -var "vpc_id=vpc-123456" -var "subnets=[\"subnet-12345a\"]" -var "workers_ami_id=ami-123456" -var "cluster_ingress_cidrs=[]" -var "cluster_name=test_cluster"
+- terraform validate -var "region=${AWS_REGION}" -var "vpc_id=vpc-123456" -var "subnet_ids=[\"subnet-12345a\"]" -var "ssh_key_name=abc"
 # - docker run --rm -v $(pwd):/app/ --workdir=/app/ -t wata727/tflint --error-with-issues
-- cd examples/eks_test_fixture
-- terraform init
-- terraform fmt -check=true
-- terraform validate
-- cd -
 - terraform -v
