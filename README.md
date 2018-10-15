@@ -1,5 +1,9 @@
 # Dead simple Terraform configuration for creating RabbitMQ cluster on AWS.
 
+| Branch | Build status                                                                                                                                                      |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| master | [![Build Status](https://travis-ci.org/ulamlabs/terraform-aws-rabbitmq.svg?branch=master)](https://travis-ci.org/ulamlabs/terraform-aws-rabbitmq) |
+
 
 ## What it does ?
 
