@@ -3,7 +3,7 @@
 
 ## What it does ?
 
-1. Creates `${var.count}` nodes in `${var.subnet_ids}` subnets
+1. Creates `N` nodes in `M` subnets
 1. Creates Autoscaling Group and ELB to load balance nodes
 1. Makes sure nodes can talk to each other and create cluster
 1. Make sure new nodes always join the cluster
@@ -16,28 +16,24 @@
 
 
 ## How to use it ?
-
-Clone the repo, go to `example` directory, create `terraform.tfvars` file with content:
+Copy and paste into your Terraform configuration:
 ```
-region = "<REGION-HERE>"
-access_key = "<YOUR-KEY-HERE>"
-secret_key = "<YOUR-SECRET-HERE>"
-ssh_key_name = "<SSH-KEY-NAME>"
-instance_type = "t2.small"
-vpc_id = "<VPC-ID>"
-subnet_ids = ["<SUBNET-ID-1>", "<SUBNET-ID-2>"]
-ssh_security_group_ids = []
-elb_security_group_ids = []
-
-rabbitmq_admin_password = "example-password"
-rabbitmq_rabbit_password = "example-password"
-rabbitmq_secret_cookie = "example-secret-cookie"
-rabbitmq_node_count = 3
+module "rabbitmq" {
+  source                            = "ulamlabs/rabbitmq/aws"
+  version                           = "2.0.0"
+  vpc_id                            = "${var.vpc_id}"
+  ssh_key_name                      = "${var.ssh_key_name}"
+  subnet_ids                        = "${var.subnet_ids}"
+  elb_additional_security_group_ids = ["var.cluster_security_group_id"]
+  min_size                          = "3"
+  max_size                          = "3"
+  desired_size                      = "3"
+}
 ```
 
-then run `terraform get`, `terraform plan` and `terraform apply`.
+then run `terraform init`, `terraform plan` and `terraform apply`.
 
-Are 3 node not enough ? Update `count` to `5` and run `terraform apply` again,
+Are 3 node not enough ? Update sizes to `5` and run `terraform apply` again,
 it will update Autoscaling Group and add `2` nodes more. Dead simple.
 
 Node becomes unresponsive ? Autoscaling group and ELB Health Checks will automatically replace it with new one, without data loss.

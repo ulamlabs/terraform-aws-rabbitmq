@@ -2,6 +2,8 @@ data "aws_vpc" "vpc" {
   id = "${var.vpc_id}"
 }
 
+data "aws_region" "current" {}
+
 data "aws_ami_ids" "ami" {
   owners = ["amazon"]
 
@@ -9,6 +11,21 @@ data "aws_ami_ids" "ami" {
     name   = "name"
     values = ["amzn-ami-hvm-2017*-gp2"]
   }
+}
+
+resource "random_string" "admin_password" {
+  length  = 32
+  special = false
+}
+
+resource "random_string" "rabbit_password" {
+  length  = 32
+  special = false
+}
+
+resource "random_string" "secret_cookie" {
+  length  = 64
+  special = false
 }
 
 data "aws_iam_policy_document" "policy_doc" {
@@ -27,22 +44,23 @@ data "template_file" "cloud-init" {
 
   vars {
     sync_node_count = 3
-    region            = "${var.region}"
-    secret_cookie     = "${var.rabbitmq_secret_cookie}"
-    admin_password    = "${var.admin_password}"
-    rabbit_password   = "${var.rabbit_password}"
-    message_timeout   = "${3 * 24 * 60 * 60 * 1000}"  # 3 days
+    region          = "${data.aws_region.current.name}"
+    admin_password  = "${random_string.admin_password.result}"
+    rabbit_password = "${random_string.rabbit_password.result}"
+    secret_cookie   = "${random_string.secret_cookie.result}"
+    message_timeout = "${3 * 24 * 60 * 60 * 1000}"              # 3 days
   }
 }
 
 resource "aws_iam_role" "role" {
-  name               = "rabbitmq"
+  name               = "rabbitmq-${var.name}"
   assume_role_policy = "${data.aws_iam_policy_document.policy_doc.json}"
 }
 
 resource "aws_iam_role_policy" "policy" {
-  name   = "rabbitmq"
-  role   = "${aws_iam_role.role.id}"
+  name = "rabbitmq-${var.name}"
+  role = "${aws_iam_role.role.id}"
+
   policy = <<EOF
 {
     "Version": "2012-10-17",
@@ -63,29 +81,14 @@ EOF
 }
 
 resource "aws_iam_instance_profile" "profile" {
-  name = "rabbitmq"
-  role = "${aws_iam_role.role.name}"
+  name_prefix = "rabbitmq-${var.name}"
+  role        = "${aws_iam_role.role.name}"
 }
 
-
 resource "aws_security_group" "rabbitmq_elb" {
-  name        = "rabbitmq_elb"
+  name        = "rabbitmq_elb-${var.name}"
   vpc_id      = "${var.vpc_id}"
   description = "Security Group for the rabbitmq elb"
-
-  ingress {
-    protocol        = "tcp"
-    from_port       = 5672
-    to_port         = 5672
-    security_groups = ["${var.elb_security_group_ids}"]
-  }
-
-  ingress {
-    protocol        = "tcp"
-    from_port       = 80
-    to_port         = 80
-    security_groups = ["${var.elb_security_group_ids}"]
-  }
 
   egress {
     protocol    = "-1"
@@ -95,12 +98,12 @@ resource "aws_security_group" "rabbitmq_elb" {
   }
 
   tags {
-    Name = "rabbitmq elb"
+    Name = "rabbitmq ${var.name} ELB"
   }
 }
 
 resource "aws_security_group" "rabbitmq_nodes" {
-  name        = "rabbitmq-nodes"
+  name        = "rabbitmq-${var.name}-nodes"
   vpc_id      = "${var.vpc_id}"
   description = "Security Group for the rabbitmq nodes"
 
@@ -125,42 +128,47 @@ resource "aws_security_group" "rabbitmq_nodes" {
     security_groups = ["${aws_security_group.rabbitmq_elb.id}"]
   }
 
-  ingress {
-    protocol        = "tcp"
-    from_port       = 22
-    to_port         = 22
-    security_groups = ["${var.ssh_security_group_ids}"]
-  }
-
   egress {
-    protocol    = "-1"
-    from_port   = 0
-    to_port     = 0
+    protocol  = "-1"
+    from_port = 0
+    to_port   = 0
+
     cidr_blocks = [
-      "0.0.0.0/0"
+      "0.0.0.0/0",
     ]
   }
 
   tags {
-    Name = "rabbitmq nodes"
+    Name = "rabbitmq ${var.name} nodes"
   }
 }
 
 resource "aws_launch_configuration" "rabbitmq" {
-  name                 = "rabbitmq"
+  name_prefix          = "rabbitmq-${var.name}-"
   image_id             = "${data.aws_ami_ids.ami.ids[0]}"
   instance_type        = "${var.instance_type}"
   key_name             = "${var.ssh_key_name}"
-  security_groups      = ["${aws_security_group.rabbitmq_nodes.id}"]
+  security_groups      = ["${aws_security_group.rabbitmq_nodes.id}", "${var.nodes_additional_security_group_ids}"]
   iam_instance_profile = "${aws_iam_instance_profile.profile.id}"
   user_data            = "${data.template_file.cloud-init.rendered}"
+
+  root_block_device {
+    volume_type           = "${var.instance_volume_type}"
+    volume_size           = "${var.instance_volume_size}"
+    iops                  = "${var.instance_volume_iops}"
+    delete_on_termination = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_autoscaling_group" "rabbitmq" {
-  name                      = "rabbitmq"
-  max_size                  = "${var.count}"
-  min_size                  = "${var.count}"
-  desired_capacity          = "${var.count}"
+  name_prefix               = "rabbitmq-${var.name}-"
+  min_size                  = "${var.min_size}"
+  desired_capacity          = "${var.desired_size}"
+  max_size                  = "${var.max_size}"
   health_check_grace_period = 300
   health_check_type         = "ELB"
   force_delete              = true
@@ -169,27 +177,27 @@ resource "aws_autoscaling_group" "rabbitmq" {
   vpc_zone_identifier       = ["${var.subnet_ids}"]
 
   tag {
-    key = "Name"
-    value = "rabbitmq"
+    key                 = "Name"
+    value               = "rabbitmq-${var.name}"
     propagate_at_launch = true
   }
 }
 
 resource "aws_elb" "elb" {
-  name                 = "rabbit-elb"
+  name = "rabbitmq-${var.name}-elb"
 
   listener {
-    instance_port      = 5672
-    instance_protocol  = "tcp"
-    lb_port            = 5672
-    lb_protocol        = "tcp"
+    instance_port     = 5672
+    instance_protocol = "tcp"
+    lb_port           = 5672
+    lb_protocol       = "tcp"
   }
 
   listener {
-    instance_port      = 15672
-    instance_protocol  = "http"
-    lb_port            = 80
-    lb_protocol        = "http"
+    instance_port     = 15672
+    instance_protocol = "http"
+    lb_port           = 80
+    lb_protocol       = "http"
   }
 
   health_check {
@@ -200,12 +208,12 @@ resource "aws_elb" "elb" {
     target              = "TCP:5672"
   }
 
-  subnets               = ["${var.subnet_ids}"]
-  idle_timeout          = 3600
-  internal              = true
-  security_groups       = ["${aws_security_group.rabbitmq_elb.id}"]
+  subnets         = ["${var.subnet_ids}"]
+  idle_timeout    = 3600
+  internal        = true
+  security_groups = ["${aws_security_group.rabbitmq_elb.id}", "${var.elb_additional_security_group_ids}"]
 
   tags {
-    Name = "rabbitmq"
+    Name = "rabbitmq-${var.name}"
   }
 }

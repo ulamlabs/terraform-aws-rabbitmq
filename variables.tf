@@ -1,33 +1,52 @@
 variable "vpc_id" {}
-variable "region" {}
 variable "ssh_key_name" {}
-variable "count" {
-  description = "Number of RabbitMQ nodes"
-  default = 2
+
+variable "name" {
+  default = "main"
 }
+
+variable "min_size" {
+  description = "Minimum number of RabbitMQ nodes"
+  default     = 2
+}
+
+variable "desired_size" {
+  description = "Desired number of RabbitMQ nodes"
+  default     = 2
+}
+
+variable "max_size" {
+  description = "Maximum number of RabbitMQ nodes"
+  default     = 2
+}
+
 variable "subnet_ids" {
   description = "Subnets for RabbitMQ nodes"
-  type = "list"
+  type        = "list"
 }
-variable "ssh_security_group_ids" {
-  description = "Security groups which should have SSH access to nodes."
-  type = "list"
+
+variable "nodes_additional_security_group_ids" {
+  type    = "list"
+  default = []
 }
-variable "elb_security_group_ids" {
-  description = "Security groups which should have access to ELB (amqp + http ports)."
-  type = "list"
+
+variable "elb_additional_security_group_ids" {
+  type    = "list"
+  default = []
 }
-variable "admin_password" {
-  description = "Password for 'admin' user"
-  default = "password"
-}
-variable "rabbit_password" {
-  description = "Password for 'rabbit' user"
-  default = "password"
-}
-variable "rabbitmq_secret_cookie" {
-  default = "supersecretcookie"
-}
+
 variable "instance_type" {
-  default = "t2.small"
+  default = "m5.large"
+}
+
+variable "instance_volume_type" {
+  default = "standard"
+}
+
+variable "instance_volume_size" {
+  default = "0"
+}
+
+variable "instance_volume_iops" {
+  default = "0"
 }
