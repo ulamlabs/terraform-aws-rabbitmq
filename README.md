@@ -7,6 +7,7 @@
 
 ## What it does ?
 
+1. Uses [official](https://hub.docker.com/_/rabbitmq/) RabbitMQ docker image.
 1. Creates `N` nodes in `M` subnets
 1. Creates Autoscaling Group and ELB to load balance nodes
 1. Makes sure nodes can talk to each other and create cluster
