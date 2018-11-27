@@ -13,6 +13,10 @@ data "aws_ami_ids" "ami" {
   }
 }
 
+locals {
+  cluster_name = "rabbitmq-${var.name}"
+}
+
 resource "random_string" "admin_password" {
   length  = 32
   special = false
@@ -44,6 +48,7 @@ data "template_file" "cloud-init" {
 
   vars {
     sync_node_count = 3
+    asg_name        = "${local.cluster_name}"
     region          = "${data.aws_region.current.name}"
     admin_password  = "${random_string.admin_password.result}"
     rabbit_password = "${random_string.rabbit_password.result}"
@@ -53,12 +58,12 @@ data "template_file" "cloud-init" {
 }
 
 resource "aws_iam_role" "role" {
-  name               = "rabbitmq-${var.name}"
+  name               = "${local.cluster_name}"
   assume_role_policy = "${data.aws_iam_policy_document.policy_doc.json}"
 }
 
 resource "aws_iam_role_policy" "policy" {
-  name = "rabbitmq-${var.name}"
+  name = "${local.cluster_name}"
   role = "${aws_iam_role.role.id}"
 
   policy = <<EOF
@@ -81,7 +86,7 @@ EOF
 }
 
 resource "aws_iam_instance_profile" "profile" {
-  name_prefix = "rabbitmq-${var.name}"
+  name_prefix = "${local.cluster_name}"
   role        = "${aws_iam_role.role.name}"
 }
 
@@ -103,7 +108,7 @@ resource "aws_security_group" "rabbitmq_elb" {
 }
 
 resource "aws_security_group" "rabbitmq_nodes" {
-  name        = "rabbitmq-${var.name}-nodes"
+  name        = "${local.cluster_name}-nodes"
   vpc_id      = "${var.vpc_id}"
   description = "Security Group for the rabbitmq nodes"
 
@@ -144,7 +149,7 @@ resource "aws_security_group" "rabbitmq_nodes" {
 }
 
 resource "aws_launch_configuration" "rabbitmq" {
-  name_prefix          = "rabbitmq-${var.name}-"
+  name                 = "${local.cluster_name}"
   image_id             = "${data.aws_ami_ids.ami.ids[0]}"
   instance_type        = "${var.instance_type}"
   key_name             = "${var.ssh_key_name}"
@@ -165,7 +170,7 @@ resource "aws_launch_configuration" "rabbitmq" {
 }
 
 resource "aws_autoscaling_group" "rabbitmq" {
-  name_prefix               = "rabbitmq-${var.name}-"
+  name                      = "${local.cluster_name}"
   min_size                  = "${var.min_size}"
   desired_capacity          = "${var.desired_size}"
   max_size                  = "${var.max_size}"
@@ -178,13 +183,13 @@ resource "aws_autoscaling_group" "rabbitmq" {
 
   tag {
     key                 = "Name"
-    value               = "rabbitmq-${var.name}"
+    value               = "${local.cluster_name}"
     propagate_at_launch = true
   }
 }
 
 resource "aws_elb" "elb" {
-  name = "rabbitmq-${var.name}-elb"
+  name = "${local.cluster_name}-elb"
 
   listener {
     instance_port     = 5672
@@ -214,6 +219,6 @@ resource "aws_elb" "elb" {
   security_groups = ["${aws_security_group.rabbitmq_elb.id}", "${var.elb_additional_security_group_ids}"]
 
   tags {
-    Name = "rabbitmq-${var.name}"
+    Name = "${local.cluster_name}"
   }
 }
