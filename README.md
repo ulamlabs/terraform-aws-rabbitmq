@@ -25,7 +25,7 @@ Copy and paste into your Terraform configuration:
 ```
 module "rabbitmq" {
   source                            = "ulamlabs/rabbitmq/aws"
-  version                           = "2.0.0"
+  version                           = "2.0.1"
   vpc_id                            = "${var.vpc_id}"
   ssh_key_name                      = "${var.ssh_key_name}"
   subnet_ids                        = "${var.subnet_ids}"
