@@ -42,3 +42,5 @@ Are 3 node not enough ? Update sizes to `5` and run `terraform apply` again,
 it will update Autoscaling Group and add `2` nodes more. Dead simple.
 
 Node becomes unresponsive ? Autoscaling group and ELB Health Checks will automatically replace it with new one, without data loss.
+
+Note: The VPC must have `enableDnsHostnames` = `true` and `enableDnsSupport` = `true` for the private DNS names to be resolvable for the nodes to connect to each other.   
