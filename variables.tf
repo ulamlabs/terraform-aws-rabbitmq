@@ -1,5 +1,8 @@
-variable "vpc_id" {}
-variable "ssh_key_name" {}
+variable "vpc_id" {
+}
+
+variable "ssh_key_name" {
+}
 
 variable "name" {
   default = "main"
@@ -22,16 +25,16 @@ variable "max_size" {
 
 variable "subnet_ids" {
   description = "Subnets for RabbitMQ nodes"
-  type        = "list"
+  type        = list(string)
 }
 
 variable "nodes_additional_security_group_ids" {
-  type    = "list"
+  type    = list(string)
   default = []
 }
 
 variable "elb_additional_security_group_ids" {
-  type    = "list"
+  type    = list(string)
   default = []
 }
 
@@ -50,3 +53,4 @@ variable "instance_volume_size" {
 variable "instance_volume_iops" {
   default = "0"
 }
+

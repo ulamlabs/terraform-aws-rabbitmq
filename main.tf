@@ -1,8 +1,9 @@
 data "aws_vpc" "vpc" {
-  id = "${var.vpc_id}"
+  id = var.vpc_id
 }
 
-data "aws_region" "current" {}
+data "aws_region" "current" {
+}
 
 data "aws_ami_ids" "ami" {
   owners = ["amazon"]
@@ -44,27 +45,27 @@ data "aws_iam_policy_document" "policy_doc" {
 }
 
 data "template_file" "cloud-init" {
-  template = "${file("${path.module}/cloud-init.yaml")}"
+  template = file("${path.module}/cloud-init.yaml")
 
-  vars {
+  vars = {
     sync_node_count = 3
-    asg_name        = "${local.cluster_name}"
-    region          = "${data.aws_region.current.name}"
-    admin_password  = "${random_string.admin_password.result}"
-    rabbit_password = "${random_string.rabbit_password.result}"
-    secret_cookie   = "${random_string.secret_cookie.result}"
-    message_timeout = "${3 * 24 * 60 * 60 * 1000}"              # 3 days
+    asg_name        = local.cluster_name
+    region          = data.aws_region.current.name
+    admin_password  = random_string.admin_password.result
+    rabbit_password = random_string.rabbit_password.result
+    secret_cookie   = random_string.secret_cookie.result
+    message_timeout = 3 * 24 * 60 * 60 * 1000 # 3 days
   }
 }
 
 resource "aws_iam_role" "role" {
-  name               = "${local.cluster_name}"
-  assume_role_policy = "${data.aws_iam_policy_document.policy_doc.json}"
+  name               = local.cluster_name
+  assume_role_policy = data.aws_iam_policy_document.policy_doc.json
 }
 
 resource "aws_iam_role_policy" "policy" {
-  name = "${local.cluster_name}"
-  role = "${aws_iam_role.role.id}"
+  name = local.cluster_name
+  role = aws_iam_role.role.id
 
   policy = <<EOF
 {
@@ -83,16 +84,17 @@ resource "aws_iam_role_policy" "policy" {
     ]
 }
 EOF
+
 }
 
 resource "aws_iam_instance_profile" "profile" {
-  name_prefix = "${local.cluster_name}"
-  role        = "${aws_iam_role.role.name}"
+  name_prefix = local.cluster_name
+  role        = aws_iam_role.role.name
 }
 
 resource "aws_security_group" "rabbitmq_elb" {
   name        = "rabbitmq_elb-${var.name}"
-  vpc_id      = "${var.vpc_id}"
+  vpc_id      = var.vpc_id
   description = "Security Group for the rabbitmq elb"
 
   egress {
@@ -102,14 +104,14 @@ resource "aws_security_group" "rabbitmq_elb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags {
+  tags = {
     Name = "rabbitmq ${var.name} ELB"
   }
 }
 
 resource "aws_security_group" "rabbitmq_nodes" {
   name        = "${local.cluster_name}-nodes"
-  vpc_id      = "${var.vpc_id}"
+  vpc_id      = var.vpc_id
   description = "Security Group for the rabbitmq nodes"
 
   ingress {
@@ -123,14 +125,14 @@ resource "aws_security_group" "rabbitmq_nodes" {
     protocol        = "tcp"
     from_port       = 5672
     to_port         = 5672
-    security_groups = ["${aws_security_group.rabbitmq_elb.id}"]
+    security_groups = [aws_security_group.rabbitmq_elb.id]
   }
 
   ingress {
     protocol        = "tcp"
     from_port       = 15672
     to_port         = 15672
-    security_groups = ["${aws_security_group.rabbitmq_elb.id}"]
+    security_groups = [aws_security_group.rabbitmq_elb.id]
   }
 
   egress {
@@ -143,24 +145,24 @@ resource "aws_security_group" "rabbitmq_nodes" {
     ]
   }
 
-  tags {
+  tags = {
     Name = "rabbitmq ${var.name} nodes"
   }
 }
 
 resource "aws_launch_configuration" "rabbitmq" {
-  name                 = "${local.cluster_name}"
-  image_id             = "${data.aws_ami_ids.ami.ids[0]}"
-  instance_type        = "${var.instance_type}"
-  key_name             = "${var.ssh_key_name}"
-  security_groups      = ["${aws_security_group.rabbitmq_nodes.id}", "${var.nodes_additional_security_group_ids}"]
-  iam_instance_profile = "${aws_iam_instance_profile.profile.id}"
-  user_data            = "${data.template_file.cloud-init.rendered}"
+  name                 = local.cluster_name
+  image_id             = data.aws_ami_ids.ami.ids[0]
+  instance_type        = var.instance_type
+  key_name             = var.ssh_key_name
+  security_groups      = concat([aws_security_group.rabbitmq_nodes.id], var.nodes_additional_security_group_ids)
+  iam_instance_profile = aws_iam_instance_profile.profile.id
+  user_data            = data.template_file.cloud-init.rendered
 
   root_block_device {
-    volume_type           = "${var.instance_volume_type}"
-    volume_size           = "${var.instance_volume_size}"
-    iops                  = "${var.instance_volume_iops}"
+    volume_type           = var.instance_volume_type
+    volume_size           = var.instance_volume_size
+    iops                  = var.instance_volume_iops
     delete_on_termination = true
   }
 
@@ -170,20 +172,20 @@ resource "aws_launch_configuration" "rabbitmq" {
 }
 
 resource "aws_autoscaling_group" "rabbitmq" {
-  name                      = "${local.cluster_name}"
-  min_size                  = "${var.min_size}"
-  desired_capacity          = "${var.desired_size}"
-  max_size                  = "${var.max_size}"
+  name                      = local.cluster_name
+  min_size                  = var.min_size
+  desired_capacity          = var.desired_size
+  max_size                  = var.max_size
   health_check_grace_period = 300
   health_check_type         = "ELB"
   force_delete              = true
-  launch_configuration      = "${aws_launch_configuration.rabbitmq.name}"
-  load_balancers            = ["${aws_elb.elb.name}"]
-  vpc_zone_identifier       = ["${var.subnet_ids}"]
+  launch_configuration      = aws_launch_configuration.rabbitmq.name
+  load_balancers            = [aws_elb.elb.name]
+  vpc_zone_identifier       = var.subnet_ids
 
   tag {
     key                 = "Name"
-    value               = "${local.cluster_name}"
+    value               = local.cluster_name
     propagate_at_launch = true
   }
 }
@@ -213,12 +215,12 @@ resource "aws_elb" "elb" {
     target              = "TCP:5672"
   }
 
-  subnets         = ["${var.subnet_ids}"]
+  subnets         = var.subnet_ids
   idle_timeout    = 3600
   internal        = true
-  security_groups = ["${aws_security_group.rabbitmq_elb.id}", "${var.elb_additional_security_group_ids}"]
+  security_groups = concat([aws_security_group.rabbitmq_elb.id], var.elb_additional_security_group_ids)
 
-  tags {
-    Name = "${local.cluster_name}"
+  tags = {
+    Name = local.cluster_name
   }
 }

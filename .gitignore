@@ -4,3 +4,4 @@
 *.lock.info
 .terraform
 .idea
+test
