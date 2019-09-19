@@ -5,12 +5,18 @@ data "aws_vpc" "vpc" {
 data "aws_region" "current" {
 }
 
-data "aws_ami_ids" "ami" {
-  owners = ["amazon"]
+data "aws_ami" "amazon-linux-2" {
+  owners      = ["amazon"]
+  most_recent = true
+
+  filter {
+    name   = "owner-alias"
+    values = ["amazon"]
+  }
 
   filter {
     name   = "name"
-    values = ["amzn-ami-hvm-2017*-gp2"]
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 }
 
@@ -152,7 +158,7 @@ resource "aws_security_group" "rabbitmq_nodes" {
 
 resource "aws_launch_configuration" "rabbitmq" {
   name                 = local.cluster_name
-  image_id             = data.aws_ami_ids.ami.ids[0]
+  image_id             = data.aws_ami.amazon-linux-2.id
   instance_type        = var.instance_type
   key_name             = var.ssh_key_name
   security_groups      = concat([aws_security_group.rabbitmq_nodes.id], var.nodes_additional_security_group_ids)
