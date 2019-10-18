@@ -3,17 +3,17 @@ output "rabbitmq_elb_dns" {
 }
 
 output "admin_password" {
-  value     = random_string.admin_password.result
+  value     = random_password.admin_password.result
   sensitive = true
 }
 
 output "rabbit_password" {
-  value     = random_string.rabbit_password.result
+  value     = random_password.rabbit_password.result
   sensitive = true
 }
 
 output "secret_cookie" {
-  value     = random_string.secret_cookie.result
+  value     = random_password.secret_cookie.result
   sensitive = true
 }
 
