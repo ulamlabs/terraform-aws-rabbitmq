@@ -24,7 +24,7 @@ write_files:
             fi
         done
 
-        echo $HOSTNAMES
+        echo ${HOSTNAMES[@]}
   - path: /root/bin/join_cluster.sh
     content: |
         #!/usr/bin/env sh
