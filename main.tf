@@ -185,6 +185,12 @@ resource "aws_autoscaling_group" "rabbitmq" {
   load_balancers            = [aws_elb.elb.name]
   vpc_zone_identifier       = var.subnet_ids
 
+  tag {
+    key                 = "Name"
+    value               = local.cluster_name
+    propagate_at_launch = true
+  }
+
   dynamic "tag" {
     for_each = var.tags
 
