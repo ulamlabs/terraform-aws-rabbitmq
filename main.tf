@@ -15,7 +15,7 @@ data "aws_ami_ids" "ami" {
 }
 
 locals {
-  cluster_name = "rabbitmq-${var.name}"
+  cluster_name = "${var.name}-rabbitmq"
 }
 
 resource "random_string" "admin_password" {
@@ -93,7 +93,7 @@ resource "aws_iam_instance_profile" "profile" {
 }
 
 resource "aws_security_group" "rabbitmq_elb" {
-  name        = "rabbitmq_elb-${var.name}"
+  name        = "${var.name}-rabbitmq_elb"
   vpc_id      = var.vpc_id
   description = "Security Group for the rabbitmq elb"
 
@@ -105,7 +105,7 @@ resource "aws_security_group" "rabbitmq_elb" {
   }
 
   tags = merge(
-    {Name = "rabbitmq ${var.name} ELB"},
+    {Name = "${var.name} rabbitmq ELB"},
     var.tags
   )
 }
@@ -147,7 +147,7 @@ resource "aws_security_group" "rabbitmq_nodes" {
   }
 
   tags = merge(
-    {Name = "rabbitmq ${var.name} nodes"},
+    {Name = "${var.name} rabbitmq nodes"},
     var.tags
   )
 }
