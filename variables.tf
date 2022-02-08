@@ -54,3 +54,8 @@ variable "instance_volume_iops" {
   default = "0"
 }
 
+variable "tags" {
+  description = "A map of tags to add to all resources"
+  type        = map(string)
+  default     = {}
+}

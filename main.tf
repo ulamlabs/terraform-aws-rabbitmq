@@ -104,9 +104,10 @@ resource "aws_security_group" "rabbitmq_elb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "rabbitmq ${var.name} ELB"
-  }
+  tags = merge(
+    {Name = "rabbitmq ${var.name} ELB"},
+    var.tags
+  )
 }
 
 resource "aws_security_group" "rabbitmq_nodes" {
@@ -145,9 +146,10 @@ resource "aws_security_group" "rabbitmq_nodes" {
     ]
   }
 
-  tags = {
-    Name = "rabbitmq ${var.name} nodes"
-  }
+  tags = merge(
+    {Name = "rabbitmq ${var.name} nodes"},
+    var.tags
+  )
 }
 
 resource "aws_launch_configuration" "rabbitmq" {
@@ -220,7 +222,8 @@ resource "aws_elb" "elb" {
   internal        = true
   security_groups = concat([aws_security_group.rabbitmq_elb.id], var.elb_additional_security_group_ids)
 
-  tags = {
-    Name = local.cluster_name
-  }
+  tags = merge(
+    {Name = local.cluster_name},
+    var.tags
+  )
 }
