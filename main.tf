@@ -15,7 +15,7 @@ data "aws_ami_ids" "ami" {
 }
 
 locals {
-  cluster_name = "rabbitmq-${var.name}"
+  cluster_name = "${var.name}-rabbitmq"
 }
 
 resource "random_string" "admin_password" {
@@ -93,7 +93,7 @@ resource "aws_iam_instance_profile" "profile" {
 }
 
 resource "aws_security_group" "rabbitmq_elb" {
-  name        = "rabbitmq_elb-${var.name}"
+  name        = "${var.name}-rabbitmq_elb"
   vpc_id      = var.vpc_id
   description = "Security Group for the rabbitmq elb"
 
@@ -104,9 +104,10 @@ resource "aws_security_group" "rabbitmq_elb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "rabbitmq ${var.name} ELB"
-  }
+  tags = merge(
+    {Name = "${var.name} rabbitmq ELB"},
+    var.tags
+  )
 }
 
 resource "aws_security_group" "rabbitmq_nodes" {
@@ -145,9 +146,10 @@ resource "aws_security_group" "rabbitmq_nodes" {
     ]
   }
 
-  tags = {
-    Name = "rabbitmq ${var.name} nodes"
-  }
+  tags = merge(
+    {Name = "${var.name} rabbitmq nodes"},
+    var.tags
+  )
 }
 
 resource "aws_launch_configuration" "rabbitmq" {
@@ -188,6 +190,16 @@ resource "aws_autoscaling_group" "rabbitmq" {
     value               = local.cluster_name
     propagate_at_launch = true
   }
+
+  dynamic "tag" {
+    for_each = var.tags
+
+    content {
+      key    =  tag.key
+      value   =  tag.value
+      propagate_at_launch =  true
+    }
+  }
 }
 
 resource "aws_elb" "elb" {
@@ -220,7 +232,8 @@ resource "aws_elb" "elb" {
   internal        = true
   security_groups = concat([aws_security_group.rabbitmq_elb.id], var.elb_additional_security_group_ids)
 
-  tags = {
-    Name = local.cluster_name
-  }
+  tags = merge(
+    {Name = local.cluster_name},
+    var.tags
+  )
 }
