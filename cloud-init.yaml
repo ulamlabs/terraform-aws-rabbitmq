@@ -62,6 +62,10 @@ write_files:
         docker exec rabbitmq rabbitmqctl set_permissions -p / admin ".*" ".*" ".*"
         docker exec rabbitmq rabbitmqctl set_permissions -p / rabbit ".*" ".*" ".*"
         docker exec rabbitmq rabbitmqctl delete_user guest
+  - path: /root/data/.erlang.cookie
+    permissions: '0600'
+    content: |
+        ${secret_cookie}
 
 runcmd:
   - yum update -y
@@ -69,7 +73,7 @@ runcmd:
   - service docker start
   - chkconfig docker on
   - usermod -a -G docker ec2-user
-  - docker run -d --name rabbitmq --hostname $HOSTNAME -p 4369:4369 -p 5672:5672 -p 15672:15672 -p 25672:25672 -e RABBITMQ_ERLANG_COOKIE='${secret_cookie}' -v /root/data:/var/lib/rabbitmq -v /root/conf/:/etc/rabbitmq -v /root/bin:/tmp/bin rabbitmq:3-management
+  - docker run -d --name rabbitmq --hostname $HOSTNAME -p 4369:4369 -p 5672:5672 -p 15672:15672 -p 25672:25672 -v /root/data:/var/lib/rabbitmq -v /root/conf/:/etc/rabbitmq -v /root/bin:/tmp/bin rabbitmq:3-management
   - sleep 1
   - docker exec rabbitmq bash /tmp/bin/join_cluster.sh $(bash /root/find_hosts.sh)
   - sleep 1

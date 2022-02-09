@@ -54,3 +54,7 @@ variable "instance_volume_iops" {
   default = "0"
 }
 
+variable "ami_name_filter" {
+  default = "amzn-ami-hvm-2017*-gp2"
+}
+
