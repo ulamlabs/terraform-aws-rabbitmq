@@ -5,12 +5,23 @@ data "aws_vpc" "vpc" {
 data "aws_region" "current" {
 }
 
-data "aws_ami_ids" "ami" {
+data "aws_ami" "ami" {
   owners = ["amazon"]
+  most_recent      = true
 
   filter {
     name   = "name"
-    values = ["amzn-ami-hvm-2017*-gp2"]
+    values = ["amzn2-ami-kernel-*-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name = "architecture"
+    values = ["x86_64"]
   }
 }
 
